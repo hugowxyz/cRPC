@@ -4,6 +4,6 @@ project(cRPC)
 set(CMAKE_CXX_STANDARD 20)
 
 #add_executable(cRPC main.cpp)
-include_directories(include)
+include_directories(include dependencies/include)
 add_subdirectory(lib)
 add_subdirectory(examples)

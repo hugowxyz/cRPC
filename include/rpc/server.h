@@ -1,15 +1,29 @@
-//
-// Created by phanh on 23/12/2022.
-//
-
 #ifndef CRPC_SERVER_H
 #define CRPC_SERVER_H
 
 #include <string>
 
+#include <boost/asio.hpp>
+
+using namespace boost::asio;
+
 namespace rpc {
     class server {
-        server(std::string const &address, uint16_t port);
+    public:
+        server(std::string const &address, unsigned short port);
+        ~server();
+
+        //! Starts synchronous (blocking) server loop
+        [[noreturn]] void run();
+
+    private:
+        //! Attach connection handlers
+        void start_accept();
+
+    private:
+        io_service io_;
+        ip::tcp::acceptor acceptor_;
+        ip::tcp::socket socket_;
     };
 }
 
