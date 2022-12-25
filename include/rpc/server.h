@@ -4,6 +4,7 @@
 #include <string>
 
 #include <boost/asio.hpp>
+#include "tcp_connection.h"
 
 using namespace boost::asio;
 
@@ -14,7 +15,7 @@ namespace rpc {
         ~server();
 
         //! Starts synchronous (blocking) server loop
-        [[noreturn]] void run();
+        void run();
 
     private:
         //! Attach connection handlers
