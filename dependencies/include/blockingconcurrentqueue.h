@@ -358,10 +358,10 @@ public:
 	template<typename U>
 	inline void wait_dequeue(U& item)
 	{
-		while (!sema->wait()) {
+		while (!sema->wait() && !cancelled_) {
 			continue;
 		}
-		while (!inner.try_dequeue(item)) {
+		while (!inner.try_dequeue(item) && !cancelled_) {
 			continue;
 		}
 	}
@@ -548,7 +548,12 @@ public:
 	{
 		return ConcurrentQueue::is_lock_free();
 	}
-	
+
+    // Cheeky
+    void cancel_wait() {
+        cancelled_ = true;
+        sema->signal();
+    }
 
 private:
 	template<typename U, typename A1, typename A2>
@@ -570,6 +575,7 @@ private:
 private:
 	ConcurrentQueue inner;
 	std::unique_ptr<LightweightSemaphore, void (*)(LightweightSemaphore*)> sema;
+    std::atomic<bool> cancelled_;
 };
 
 

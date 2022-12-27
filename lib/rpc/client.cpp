@@ -1,4 +1,5 @@
 #include "rpc/client.h"
+#include "rpc/response.h"
 
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
@@ -38,17 +39,27 @@ namespace crpc {
          */
 
         do_connect(); // blocking
-        start_write_thread();
 //        start_read_thread();
-        async_run();
+        thread io_thread([this]() {
+            fmt::print("Starting io loop...\n");
+            io_.run();
+            fmt::print("Ending io loop...\n");
+        });
+
+        io_thread_ = move(io_thread);
+
+        start_write_thread();
     }
 
     client::~client() {
         fmt::print("Called from client destructor\n");
         exiting_ = true;
-        io_thread_.join();
-        read_thread_.join();
+        io_.stop();
+        // custom method
+        task_queue_.cancel_wait();
+//        read_thread_.join();
         write_thread_.join();
+        io_thread_.join();
     }
 
     void client::do_connect() {
@@ -68,6 +79,28 @@ namespace crpc {
                     if (!error) {
                         string message(c, c + bytes);
                         fmt::print("Message: {}\n", message);
+
+                        promise<msgpack::object> &promise = current_tasks_[1];
+
+                        msgpack::type::tuple<int, bool, std::string> src(1, "example");
+
+                        // serialize the object into the buffer.
+                        // any classes that implements write(const char*,size_t) can be a buffer.
+                        std::stringstream buffer;
+                        msgpack::pack(buffer, src);
+
+                        // send the buffer ...
+                        buffer.seekg(0);
+
+                        // deserialize the buffer into msgpack::object instance.
+                        std::string str(buffer.str());
+
+                        msgpack::object_handle oh =
+                                msgpack::unpack(str.data(), str.size());
+
+                        response resp = response(oh.get());
+                        promise.set_value(resp.result());
+
                         do_read();
                     }
                 });
@@ -83,6 +116,7 @@ namespace crpc {
                 if (exiting_)
                     break;
 
+                fmt::print("Sending data to server\n");
                 boost::asio::write(
                         socket_,
                         boost::asio::buffer(task.data(), task.size()));
