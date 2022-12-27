@@ -9,12 +9,6 @@ int main()
 {
     try
     {
-//        if (argc != 2)
-//        {
-//            std::cerr << "Usage: client <host>" << std::endl;
-//            return 1;
-//        }
-
         boost::asio::io_service io_service;
 
         tcp::resolver resolver(io_service);

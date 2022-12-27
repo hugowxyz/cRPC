@@ -12,7 +12,7 @@ namespace rpc {
                 [this, self, &buf](const boost::system::error_code &error, size_t bytes) {
                     if (!error) {
                         string message(buf, buf + bytes);
-                        fmt::print("bytes read {}\n", bytes);
+                        fmt::print("message read {}\n", message);
                         asio::write(socket_, asio::buffer(message));
                     }
                 });

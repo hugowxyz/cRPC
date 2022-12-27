@@ -9,6 +9,8 @@
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
 
+#include <msgpack.hpp>
+
 using namespace std;
 using boost::asio::ip::tcp;
 
@@ -81,9 +83,9 @@ private:
 
 int main() {
     try {
-        boost::asio::io_service io;
-        tcp_server server(io, "127.0.0.1", 3000);
-        io.run(); // blocking call
+//        boost::asio::io_service io;
+//        tcp_server server(io, "127.0.0.1", 3000);
+//        io.run(); // blocking call
     } catch (exception &e) {
         cerr << e.what() << endl;
     }

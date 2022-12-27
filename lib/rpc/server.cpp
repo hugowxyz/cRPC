@@ -33,6 +33,7 @@ namespace rpc {
                     if (!error) {
                         fmt::print("Accepted connection\n");
                         new_connection->start();
+                        fmt::print("Done\n");
                     }
 
                     start_accept();
