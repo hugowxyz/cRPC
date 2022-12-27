@@ -18,8 +18,8 @@ namespace crpc {
         , addr_(move(addr))
         , port_(port)
         , exiting_(false)
-        , task_id_(0) {
-
+        , task_id_(0)
+        , unpacker_() {
         /*
          * Launch io, reader and writer threads.
          * Cannot run io on main thread because it is blocking.
@@ -37,17 +37,9 @@ namespace crpc {
          * 27/12/2022
          * Having a separate read thread causes io to terminate immediately, switching to async read on main thread.
          */
-
+        unpacker_.reserve_buffer(default_buffer_size);
         do_connect(); // blocking
-//        start_read_thread();
-        thread io_thread([this]() {
-            fmt::print("Starting io loop...\n");
-            io_.run();
-            fmt::print("Ending io loop...\n");
-        });
-
-        io_thread_ = move(io_thread);
-
+        async_run();
         start_write_thread();
     }
 
@@ -71,35 +63,18 @@ namespace crpc {
     }
 
     void client::do_read() {
-        unsigned char c[default_buffer_size];
         socket_.async_read_some(
-                boost::asio::buffer(c, default_buffer_size),
-                [this, &c](boost::system::error_code error, size_t bytes) {
+                boost::asio::buffer(unpacker_.buffer(), default_buffer_size),
+                [this](boost::system::error_code error, size_t bytes) {
                     fmt::print("Read {} bytes\n", bytes);
                     if (!error) {
-                        string message(c, c + bytes);
-                        fmt::print("Message: {}\n", message);
-
-                        promise<msgpack::object> &promise = current_tasks_[1];
-
-                        msgpack::type::tuple<int, bool, std::string> src(1, "example");
-
-                        // serialize the object into the buffer.
-                        // any classes that implements write(const char*,size_t) can be a buffer.
-                        std::stringstream buffer;
-                        msgpack::pack(buffer, src);
-
-                        // send the buffer ...
-                        buffer.seekg(0);
-
-                        // deserialize the buffer into msgpack::object instance.
-                        std::string str(buffer.str());
-
-                        msgpack::object_handle oh =
-                                msgpack::unpack(str.data(), str.size());
-
-                        response resp = response(oh.get());
-                        promise.set_value(resp.result());
+                        unpacker_.buffer_consumed(bytes);
+                        msgpack::object_handle oh;
+                        while (unpacker_.next(oh)) {
+                            auto res = response(oh.get());
+                            auto &promise = current_tasks_[res.id()];
+                            promise.set_value(res.result());
+                        }
 
                         do_read();
                     }
@@ -128,62 +103,6 @@ namespace crpc {
         write_thread_ = move(write_thread);
     }
 
-    void client::start_read_thread() {
-        thread read_thread([this]() {
-            fmt::print("Starting read thread...\n");
-            unsigned char c[default_buffer_size];
-            msgpack::unpacker unpacker;
-            boost::system::error_code error;
-            while(!exiting_) {
-                fmt::print("Waiting for input..\n");
-                size_t bytes = socket_.read_some(boost::asio::buffer(c, default_buffer_size));
-                fmt::print("Received {} bytes\n", bytes);
-                if (error == boost::asio::error::eof) {
-                    break;
-                } else if (error) {
-                    fmt::print("Error receiving data: {}", error.message());
-                    throw boost::system::system_error(error);
-                }
-
-                promise<msgpack::object> &promise = current_tasks_[1];
-
-                msgpack::type::tuple<int, bool, std::string> src(1, true, "example");
-
-                // serialize the object into the buffer.
-                // any classes that implements write(const char*,size_t) can be a buffer.
-                std::stringstream buffer;
-                msgpack::pack(buffer, src);
-
-                // send the buffer ...
-                buffer.seekg(0);
-
-                // deserialize the buffer into msgpack::object instance.
-                std::string str(buffer.str());
-
-                msgpack::object_handle oh =
-                        msgpack::unpack(str.data(), str.size());
-
-                // deserialized object is valid during the msgpack::object_handle instance is alive.
-                msgpack::object deserialized = oh.get();
-
-                cout << "des " << deserialized << endl;
-
-                promise.set_value(deserialized);
-
-//                unpacker.buffer_consumed(bytes);
-//                msgpack::unpacked result;
-//                while (unpacker.next(result)) {
-//                    msgpack::object deserialized = result.get();
-//                    cout << "Deserialized object: " << deserialized << endl;
-//                }
-            }
-
-            fmt::print("Exiting read thread...\n");
-        });
-
-        read_thread_ = move(read_thread);
-    }
-
     void client::async_run() {
         thread io_thread([this]() {
             fmt::print("Starting io loop...\n");
@@ -198,25 +117,26 @@ namespace crpc {
     future<msgpack::object> client::call(string name, Args... args) {
         fmt::print("Calling function {}\n", name);
         auto args_object = make_tupe(args...);
-        int task_id = task_id_++;
+        unsigned int task_id = task_id_++;
         auto call_object = make_tuple(task_id, name, args_object);
         msgpack::sbuffer buffer;
         msgpack::pack(buffer, call_object);
-//        promise<msgpack::object> p();
-        current_tasks_.insert({task_id, promise<msgpack::object>()});
+        promise<msgpack::object> p;
+        future<msgpack::object> fut = p.get_future();
+        current_tasks_.insert({task_id, move(p)});
         task_queue_.enqueue(move(buffer));
-        return {}; // what??
+        return fut;
     }
 
-    future<msgpack::object> client::test() {
+    future<msgpack::object> client::test(int i) {
         string message = "hehehhe";
-        msgpack::type::tuple<int, string> src(1, message);
+        msgpack::type::tuple<int, string> src(i, message);
         msgpack::sbuffer buf;
         msgpack::pack(buf, src);
 
         promise<msgpack::object> p;
         future<msgpack::object> ftr = p.get_future();
-        current_tasks_.insert({1, move(p)});
+        current_tasks_.insert({i, move(p)});
         boost::asio::write(socket_, boost::asio::buffer(buf.data(), buf.size()));
         return ftr;
     }

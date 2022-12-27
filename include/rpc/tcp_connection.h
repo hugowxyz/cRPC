@@ -9,6 +9,8 @@
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
 
+#include <msgpack.hpp>
+
 using namespace std;
 using namespace boost;
 using asio::ip::tcp;
@@ -31,12 +33,17 @@ namespace rpc {
         }
 
     private:
-        tcp_connection(boost::asio::io_service &io) : socket_(io) {}
-//        void handle_write(const boost::system::error_code &error, size_t bytes) {}
+        explicit tcp_connection(boost::asio::io_service &io)
+        : socket_(io)
+        , unpacker_() {
+            unpacker_.reserve_buffer(default_buffer_size);
+        }
 
     private:
+        msgpack::unpacker unpacker_;
+        msgpack::sbuffer output_buffer_;
         tcp::socket socket_;
-
+        static const uint32_t default_buffer_size = 4096;
     };
 }
 

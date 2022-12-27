@@ -9,10 +9,10 @@ using namespace crpc;
 
 int main() {
     client client("127.0.0.1", 3000);
-    future<msgpack::object> fut = client.test();
-//    fut.wait();
-    msgpack::object res = fut.get();
-    cout << "nooo way " << res << "\n";
+    for (int i=0; i<5; i++) {
+        msgpack::object res = client.test(i).get();
+        cout << "Result: " << res << "\n";
+    }
 
 //    client.call("add", 2, 3).get();
 //    int result_value = -1;

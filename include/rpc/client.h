@@ -18,7 +18,7 @@ namespace crpc {
         client(string addr, uint16_t port);
         ~client();
 
-        future<msgpack::object> test();
+        future<msgpack::object> test(int i);
 
         template <typename... Args>
         future<msgpack::object> call(string name, Args... args);
@@ -42,8 +42,9 @@ namespace crpc {
         //! Is the client currently ending connection
         atomic<bool> exiting_;
 
-        int task_id_;
-        unordered_map<int, promise<msgpack::object>> current_tasks_;
+        unsigned int task_id_;
+        msgpack::unpacker unpacker_;
+        unordered_map<unsigned int, promise<msgpack::object>> current_tasks_;
         moodycamel::BlockingConcurrentQueue<msgpack::sbuffer> task_queue_;
 
         static const uint32_t default_buffer_size = 4096;
