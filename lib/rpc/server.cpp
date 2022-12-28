@@ -9,11 +9,12 @@
 using namespace std;
 using boost::asio::ip::tcp;
 
-namespace rpc {
+namespace crpc {
     server::server(const std::string &address, unsigned short port)
         : io_()
-        , acceptor_(io_, ip::tcp::endpoint(ip::address::from_string(address), port))
-        , socket_(io_) {
+        , acceptor_(io_, tcp::endpoint(boost::asio::ip::address::from_string(address), port))
+        , socket_(io_)
+        , dispatcher_(std::make_shared<dispatcher>()) {
         fmt::print("Starting server on address {}:{}\n", address, port);
         start_accept();
     }
@@ -25,7 +26,7 @@ namespace rpc {
     }
 
     void server::start_accept() {
-        tcp_connection::pointer new_connection = tcp_connection::create(io_);
+        tcp_connection::pointer new_connection = tcp_connection::create(io_, dispatcher_);
 
         acceptor_.async_accept(
                 new_connection->socket(),

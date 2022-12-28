@@ -9,10 +9,8 @@ using namespace crpc;
 
 int main() {
     client client("127.0.0.1", 3000);
-    for (int i=0; i<5; i++) {
-        msgpack::object res = client.test(i).get();
-        cout << "Result: " << res << "\n";
-    }
+    auto res = client.call("test", "arg").get();
+    cout << res << endl;
 
 //    client.call("add", 2, 3).get();
 //    int result_value = -1;

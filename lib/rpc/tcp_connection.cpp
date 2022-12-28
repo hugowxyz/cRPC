@@ -1,11 +1,10 @@
 #include "rpc/tcp_connection.h"
-#include <msgpack.hpp>
+#include "rpc/response.h"
 
+#include <msgpack.hpp>
 #include <iostream>
 
-using namespace std;
-
-namespace rpc {
+namespace crpc {
     void tcp_connection::start() {
         fmt::print("tcp connection start\n");
         auto self(shared_from_this());
@@ -18,10 +17,10 @@ namespace rpc {
                         msgpack::object_handle oh;
                         while (unpacker_.next(oh)) {
                             output_buffer_.clear();
-                            response task = oh.get();
-                            cout << "received task " << task << endl;
-                            msgpack::type::tuple<int, std::string> src(0, "example");
-                            msgpack::pack(output_buffer_, src);
+                            response resp = dispatcher_->dispatch(oh.get());
+                            // deserialize msgpack::object and dispatch function call
+//                            cout << "received task " << task << endl;
+                            resp.write(&output_buffer_);
                             boost::asio::write(
                                     socket_,
                                     boost::asio::buffer(output_buffer_.data(), output_buffer_.size()));

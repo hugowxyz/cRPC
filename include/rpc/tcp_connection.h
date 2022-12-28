@@ -1,6 +1,8 @@
 #ifndef CRPC_TCP_CONNECTION_H
 #define CRPC_TCP_CONNECTION_H
 
+#include <memory>
+
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -8,21 +10,21 @@
 
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
+#include "dispatcher.h"
 
 #include <msgpack.hpp>
+#include <utility>
 
-using namespace std;
-using namespace boost;
-using asio::ip::tcp;
+using boost::asio::ip::tcp;
 
-namespace rpc {
+namespace crpc {
     class tcp_connection
         : public boost::enable_shared_from_this<tcp_connection> {
     public:
         typedef boost::shared_ptr<tcp_connection> pointer;
 
-        static pointer create(boost::asio::io_service &io) {
-            return pointer(new tcp_connection(io));
+        static pointer create(boost::asio::io_service &io, std::shared_ptr<dispatcher> dispatcher) {
+            return pointer(new tcp_connection(io, std::move(dispatcher)));
         }
 
         //! action on connection
@@ -33,17 +35,20 @@ namespace rpc {
         }
 
     private:
-        explicit tcp_connection(boost::asio::io_service &io)
+        explicit tcp_connection(boost::asio::io_service &io, std::shared_ptr<dispatcher> dispatcher)
         : socket_(io)
-        , unpacker_() {
+        , unpacker_()
+        , dispatcher_(dispatcher) {
             unpacker_.reserve_buffer(default_buffer_size);
         }
 
     private:
+        static const uint32_t default_buffer_size = 4096;
+
         msgpack::unpacker unpacker_;
         msgpack::sbuffer output_buffer_;
         tcp::socket socket_;
-        static const uint32_t default_buffer_size = 4096;
+        std::shared_ptr<dispatcher> dispatcher_;
     };
 }
 

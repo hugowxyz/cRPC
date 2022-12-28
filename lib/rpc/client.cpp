@@ -8,7 +8,6 @@
 #include <utility>
 #include <iostream>
 
-using namespace std;
 using boost::asio::ip::tcp;
 
 namespace crpc {
@@ -116,7 +115,7 @@ namespace crpc {
     template<typename... Args>
     future<msgpack::object> client::call(string name, Args... args) {
         fmt::print("Calling function {}\n", name);
-        auto args_object = make_tupe(args...);
+        auto args_object = make_tuple(args...);
         unsigned int task_id = task_id_++;
         auto call_object = make_tuple(task_id, name, args_object);
         msgpack::sbuffer buffer;
