@@ -1,19 +1,8 @@
 #include "rpc/dispatcher.h"
 
-namespace crpc {
-    template<typename R, typename... Args>
-    void dispatcher::bind(std::string name, std::function<R(Args...)> func) {
-        functions_.insert({
-            name,
-            [this, func](msgpack::object args_) -> msgpack::object {
-                msgpack::type::tuple<Args...> args;
-                auto res = apply(func, convert(args));
-                msgpack::zone z;
-                return msgpack::object(res, z);
-            }
-        });
-    }
+#include <iostream>
 
+namespace crpc {
     response dispatcher::dispatch(const msgpack::object &unpacked) {
         client_message task;
         unpacked.convert(task);
@@ -25,6 +14,7 @@ namespace crpc {
         auto it = functions_.find(name);
         if (it != functions_.end()) {
             auto res = (it->second)(args);
+            std::cout << "res: " << res << std::endl;
             return response::make_response(id, res);
         } else {
             msgpack::zone z;

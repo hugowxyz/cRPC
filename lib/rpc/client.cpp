@@ -1,6 +1,3 @@
-#include "rpc/client.h"
-#include "rpc/response.h"
-
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
 
@@ -8,17 +5,22 @@
 #include <utility>
 #include <iostream>
 
+#include "rpc/client.h"
+#include "rpc/response.h"
+
 using boost::asio::ip::tcp;
 
 namespace crpc {
-    client::client(string addr, uint16_t port)
+    client::client(std::string addr, uint16_t port)
         : io_()
         , socket_(io_)
         , addr_(move(addr))
         , port_(port)
         , exiting_(false)
         , task_id_(0)
-        , unpacker_() {
+        , unpacker_()
+        , work_guard_(boost::asio::make_work_guard(io_))
+        , connected_(false) {
         /*
          * Launch io, reader and writer threads.
          * Cannot run io on main thread because it is blocking.
@@ -35,6 +37,9 @@ namespace crpc {
          *
          * 27/12/2022
          * Having a separate read thread causes io to terminate immediately, switching to async read on main thread.
+         *
+         * 29/12/2022
+         * Maybe can have separate read thread now due to work guard
          */
         unpacker_.reserve_buffer(default_buffer_size);
         do_connect(); // blocking
@@ -55,9 +60,9 @@ namespace crpc {
 
     void client::do_connect() {
         tcp::resolver resolver(io_);
-        auto endpoint_iterator = resolver.resolve({addr_, to_string(port_)});
+        auto endpoint_iterator = resolver.resolve({addr_, std::to_string(port_)});
         boost::asio::connect(socket_, endpoint_iterator);
-
+        connected_ = true;
         do_read();
     }
 
@@ -76,12 +81,20 @@ namespace crpc {
                         }
 
                         do_read();
+                    } else {
+                        if (error == boost::asio::error::eof) {
+                            fmt::print("Connection has been closed by peer\n");
+                        } else {
+                            fmt::print("Error encountered {}\n", error.message());
+                        }
+
+                        connected_ = false;
                     }
                 });
     }
 
     void client::start_write_thread() {
-        thread write_thread([this]() {
+        std::thread write_thread([this]() {
             fmt::print("Starting write thread...\n");
             msgpack::sbuffer task;
             while (!exiting_) {
@@ -89,6 +102,10 @@ namespace crpc {
 
                 if (exiting_)
                     break;
+
+                if (!connected_) {
+                    do_connect();
+                }
 
                 fmt::print("Sending data to server\n");
                 boost::asio::write(
@@ -103,7 +120,7 @@ namespace crpc {
     }
 
     void client::async_run() {
-        thread io_thread([this]() {
+        std::thread io_thread([this]() {
             fmt::print("Starting io loop...\n");
             io_.run();
             fmt::print("Ending io loop...\n");
@@ -112,29 +129,14 @@ namespace crpc {
         io_thread_ = move(io_thread);
     }
 
-    template<typename... Args>
-    future<msgpack::object> client::call(string name, Args... args) {
-        fmt::print("Calling function {}\n", name);
-        auto args_object = make_tuple(args...);
-        unsigned int task_id = task_id_++;
-        auto call_object = make_tuple(task_id, name, args_object);
-        msgpack::sbuffer buffer;
-        msgpack::pack(buffer, call_object);
-        promise<msgpack::object> p;
-        future<msgpack::object> fut = p.get_future();
-        current_tasks_.insert({task_id, move(p)});
-        task_queue_.enqueue(move(buffer));
-        return fut;
-    }
-
-    future<msgpack::object> client::test(int i) {
-        string message = "hehehhe";
-        msgpack::type::tuple<int, string> src(i, message);
+    std::future<msgpack::object> client::test(int i) {
+        std::string message = "hehehhe";
+        msgpack::type::tuple<int, std::string> src(i, message);
         msgpack::sbuffer buf;
         msgpack::pack(buf, src);
 
-        promise<msgpack::object> p;
-        future<msgpack::object> ftr = p.get_future();
+        std::promise<msgpack::object> p;
+        std::future<msgpack::object> ftr = p.get_future();
         current_tasks_.insert({i, move(p)});
         boost::asio::write(socket_, boost::asio::buffer(buf.data(), buf.size()));
         return ftr;

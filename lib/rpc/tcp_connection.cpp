@@ -20,6 +20,7 @@ namespace crpc {
                             response resp = dispatcher_->dispatch(oh.get());
                             // deserialize msgpack::object and dispatch function call
 //                            cout << "received task " << task << endl;
+                            std::cout << "server sending data " << resp.id() << " " << resp.result() << std::endl;
                             resp.write(&output_buffer_);
                             boost::asio::write(
                                     socket_,

@@ -1,14 +1,25 @@
 #include "rpc/server.h"
 
-using namespace std;
+#include <tuple>
+
 using namespace crpc;
 
-string test(string s) {
+std::string lolol(std::string s) {
     return s;
 }
 
+int add(int a, int b) {
+    return a + b;
+}
+
+std::tuple<int, std::string, std::string> nothing(std::string what) {
+    return std::make_tuple(1, "haha", "c");
+}
+
 int main() {
-    server s = server("127.0.0.1", 3000);
-    s.bind("test", test);
+    server s("127.0.0.1", 3000);
+    s.bind("test", &lolol);
+    s.bind("add", &add);
+    s.bind("nothing", &nothing);
     s.run();
 }

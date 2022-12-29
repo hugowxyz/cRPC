@@ -5,8 +5,8 @@
 #include <memory>
 
 #include <boost/asio.hpp>
-#include "tcp_connection.h"
-#include "dispatcher.h"
+#include "rpc/tcp_connection.h"
+#include "rpc/dispatcher.h"
 
 namespace crpc {
     class server {

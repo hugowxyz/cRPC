@@ -2,18 +2,21 @@
 #define CRPC_DISPATCHER_H
 
 #include "response.h"
+#include "utils.h"
 
 #include <unordered_map>
 #include <string>
 
 #include <msgpack.hpp>
 
+#include <iostream>
+
 namespace crpc {
     //! Maintain and call function bindings
     class dispatcher {
     public:
         template <typename R, typename... Args>
-        void bind(std::string name, std::function<R(Args...)> func);
+        void bind(std::string name, R (*func)(Args...));
 
         response dispatch(const msgpack::object &unpacked);
 
@@ -34,6 +37,25 @@ namespace crpc {
 
         std::unordered_map<std::string, function_type> functions_;
     };
+
+    template<typename R, typename... Args>
+    void dispatcher::bind(std::string name, R (*func)(Args...)) {
+        functions_.insert({
+            name,
+            [this, func](msgpack::object args_) -> msgpack::object {
+                msgpack::type::tuple<Args...> args;
+                args_.convert(args);
+
+                std::cout << "ARGS ";
+                utils::print(convert(args));
+                std::cout << std::endl;
+
+                auto res = apply(func, convert(args));
+                msgpack::zone z;
+                return msgpack::object(res, z);
+            }
+        });
+    }
 }
 
 #endif //CRPC_DISPATCHER_H

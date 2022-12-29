@@ -10,7 +10,7 @@
 
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
-#include "dispatcher.h"
+#include "rpc/dispatcher.h"
 
 #include <msgpack.hpp>
 #include <utility>

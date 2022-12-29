@@ -1,10 +1,11 @@
-#include "rpc/server.h"
-
-#include <boost/asio.hpp>
-
 #define FMT_HEADER_ONLY
 #include "fmt/core.h"
+
+#include <boost/asio.hpp>
+#include <iostream>
+
 #include "rpc/tcp_connection.h"
+#include "rpc/server.h"
 
 using namespace std;
 using boost::asio::ip::tcp;

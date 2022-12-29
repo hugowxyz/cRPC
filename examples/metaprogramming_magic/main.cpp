@@ -40,12 +40,13 @@ template <typename R, typename... Args>
 void my_bind(
         unordered_map<string, function<msgpack::object(msgpack::object)>> &functions,
         string name, R (*func)(Args...)) {
-    auto wrapper = std::function<R(Args...)>(func);
+//    auto wrapper = std::function<R(Args...)>(func);
     functions.insert({
         name,
-        [wrapper](msgpack::object args_) -> msgpack::object {
+        [func](msgpack::object args_) -> msgpack::object {
             msgpack::type::tuple<Args...> args;
-            auto res = apply(wrapper, convert(args));
+            args_.convert(args);
+            auto res = apply(func, convert(args));
             msgpack::zone z;
             return msgpack::object(res, z);
         }
@@ -71,14 +72,44 @@ auto getoh() {
     return oh;
 }
 
+string test(string s) {
+    return s;
+}
+
+tuple<int, string, int> t(string arg) {
+    return make_tuple(1, "ahaha", 2);
+}
+
+template<typename R, typename... Args>
+void bind2(std::string name, R (*func)(Args...)) {
+
+}
+
+template <typename R, typename... Args>
+void bind1(std::string name, R (*func)(Args...)) {
+    bind2(name, func);
+}
+
+class test_c {
+    public:
+        template <typename R, typename... Args>
+        void bind(std::string name, R (*func)(Args...)) {
+
+        }
+    };
+
 int main() {
     unordered_map<string, function<msgpack::object(msgpack::object)>> functions;
     my_bind(functions, "hehe", &do_nothing);
+    my_bind(functions, "test", &t);
 //    bool a = functions.find("hehe") == functions.end();
 //    cout << a << endl;
-    auto what = functions["hehe"];
+    auto what = functions["test"];
     auto oh = getoh();
-    auto res = what(oh.get()).as<std::string>();
+    auto res = what(oh.get());
     cout << res << endl;
+
+//    test_c c;
+//    c.bind("hehe", &test);
     return 0;
 }
